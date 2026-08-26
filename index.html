@@ -259,6 +259,7 @@
   .card:hover{ transform:translateY(-3px); box-shadow:0 10px 24px rgba(17,17,17,0.06); }
   .card.is-sold{ opacity:0.6; }
 
+  /* Fixed Image Container (Prevents Resizing) */
   .card-media{
     aspect-ratio:1/1.05;
     border-radius:4px 4px 0 0;
@@ -272,6 +273,57 @@
     width:100%; height:100%; object-fit:cover;
   }
   .card-media svg{ width:52%; height:52%; }
+
+  /* Arrow Navigation Overlay */
+  .img-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background 0.2s ease;
+    user-select: none;
+    z-index: 4;
+  }
+
+  .img-arrow:hover {
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  .prev-arrow {
+    left: 8px;
+  }
+
+  .next-arrow {
+    right: 8px;
+  }
+
+  /* Dots Indicator */
+  .img-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 4;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .dot.active {
+    background: #ffffff;
+  }
 
   .badge{
     position:absolute; top:10px; left:10px;
@@ -480,11 +532,43 @@
     border-radius:8px;
     overflow:hidden;
     display:flex; align-items:center; justify-content:center;
-    margin-bottom:18px;
+    margin-bottom:12px;
     background:var(--tag);
   }
   .modal-media img{ width:100%; height:100%; object-fit:cover; }
   .modal-media svg{ width:44%; height:44%; }
+
+  .modal-thumbs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    overflow-x: auto;
+  }
+  .modal-thumbs .thumb-item {
+    width: 50px;
+    height: 50px;
+  }
+
+  .thumb-item {
+    width: 42px;
+    height: 42px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: 0.15s;
+  }
+  .thumb-item.active, .thumb-item:hover {
+    opacity: 1;
+    border-color: var(--ink);
+  }
+  .thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
   .modal-cat{
     font-family:'Space Grotesk',monospace;
@@ -640,6 +724,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
     <div class="modal-media" id="modal-media"></div>
+    <div class="modal-thumbs" id="modal-thumbs"></div>
     <div class="modal-cat" id="modal-cat"></div>
     <div class="modal-title" id="modal-title"></div>
     <div class="modal-price" id="modal-price"></div>
@@ -673,7 +758,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ============ ICONS (fallback when a product has no photo yet) ============ */
+/* ============ ICONS ============ */
 const ICONS = {
   jeans: `<svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.3"><path d="M7 2h10l.6 6-1.1 13.5a1 1 0 0 1-1 .9h-1a1 1 0 0 1-1-.9L12 12l-1.5 9.6a1 1 0 0 1-1 .9h-1a1 1 0 0 1-1-.9L6.4 8 7 2Z"/><path d="M7 2c1.2 1 3 1 5 1s3.8 0 5-1M9 8h6M8.3 13h2.4M13.3 13h2.4"/></svg>`,
   shorts: `<svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.3"><path d="M5 3h14l.7 8-1 9.4a.9.9 0 0 1-.9.8h-1.4a.9.9 0 0 1-.9-.8L14.5 13l-1 7.4a.9.9 0 0 1-.9.8H11.2a.9.9 0 0 1-.9-.8L9.3 13l-1 7.4a.9.9 0 0 1-.9.8H5.9a.9.9 0 0 1-.9-.8L4 11 5 3Z"/><path d="M5.3 8.5h13.6"/></svg>`,
@@ -698,9 +783,9 @@ const FILTERS = [
 let LANG = "ka";
 let ACTIVE_FILTER = "all";
 let PRODUCTS = [];
-let LOAD_STATE = "loading"; // loading | ready | error
+let LOAD_STATE = "loading";
+const activeImageIndices = {};
 
-// Contact links come from config.js so the owner only edits one place
 document.getElementById("nav-insta").href = "https://ig.me/m/" + CONTACT.instagramHandle;
 document.getElementById("footer-wa").href = "https://wa.me/" + CONTACT.whatsappNumber;
 
@@ -709,7 +794,7 @@ try {
   if (SUPABASE_URL && SUPABASE_URL.indexOf("YOUR_SUPABASE") === -1) {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
-} catch (e) { /* supabase-js failed to load, handled below */ }
+} catch (e) {}
 
 async function loadProducts(){
   if (!supabaseClient) {
@@ -734,7 +819,7 @@ async function loadProducts(){
 
 function setLang(lang){
   LANG = lang;
-  document.body.classList.add("ready"); // <-- Add this line
+  document.body.classList.add("ready");
   document.body.classList.toggle("lang-en", lang === "en");
   document.getElementById("btn-ka").classList.toggle("active", lang==="ka");
   document.getElementById("btn-en").classList.toggle("active", lang==="en");
@@ -754,6 +839,16 @@ function renderFilters(){
     b.onclick = ()=>{ ACTIVE_FILTER = f.key; renderFilters(); renderGrid(); };
     wrap.appendChild(b);
   });
+}
+
+function getImagesArray(p) {
+  let imgs = [];
+  if (Array.isArray(p.image_urls) && p.image_urls.length > 0) {
+    imgs = p.image_urls;
+  } else if (p.image_url) {
+    imgs = [p.image_url];
+  }
+  return imgs.filter(url => typeof url === 'string' && url.trim().length > 0);
 }
 
 function renderGrid(){
@@ -794,14 +889,29 @@ function renderGrid(){
           ? (LANG==="ka" ? "ᲐᲮᲐᲚᲘ" : "NEW")
           : "";
 
-    const media = p.image_url
-      ? `<img src="${p.image_url}" alt="${p.name_en}" loading="lazy">`
+    const images = getImagesArray(p);
+    
+    if (!(p.id in activeImageIndices)) {
+      activeImageIndices[p.id] = 0;
+    }
+    const currentIdx = activeImageIndices[p.id];
+    const currentImg = images[currentIdx] || null;
+
+    const mediaHtml = currentImg
+      ? `<img id="card-img-${p.id}" src="${currentImg}" alt="${p.name_en}" loading="lazy">`
       : (ICONS[p.icon] || ICONS.photo);
 
     card.innerHTML = `
       <div class="card-media" onclick="openModal('${p.id}')">
         ${badgeText ? `<span class="badge ${p.sold?'sold':''}">${badgeText}</span>` : ""}
-        ${media}
+        ${mediaHtml}
+        ${images.length > 1 ? `
+          <button class="img-arrow prev-arrow" onclick="changeCardImage(event, '${p.id}', -1)">&#10094;</button>
+          <button class="img-arrow next-arrow" onclick="changeCardImage(event, '${p.id}', 1)">&#10095;</button>
+          <div class="img-dots" id="dots-${p.id}">
+            ${images.map((_, i) => `<span class="dot ${i === currentIdx ? 'active' : ''}"></span>`).join('')}
+          </div>
+        ` : ''}
       </div>
       <div class="swingtag">${p.size || ""}</div>
       <div class="card-body">
@@ -822,13 +932,55 @@ function renderGrid(){
   });
 }
 
+function changeCardImage(e, productId, direction) {
+  e.stopPropagation();
+  const p = PRODUCTS.find(item => String(item.id) === String(productId));
+  if (!p) return;
+  const images = getImagesArray(p);
+  if (images.length <= 1) return;
+
+  let newIndex = (activeImageIndices[productId] || 0) + direction;
+  if (newIndex < 0) newIndex = images.length - 1;
+  if (newIndex >= images.length) newIndex = 0;
+
+  activeImageIndices[productId] = newIndex;
+
+  const mainImg = document.getElementById(`card-img-${productId}`);
+  if (mainImg) {
+    mainImg.src = images[newIndex];
+  }
+
+  const dotsWrap = document.getElementById(`dots-${productId}`);
+  if (dotsWrap) {
+    dotsWrap.innerHTML = images.map((_, i) => `<span class="dot ${i === newIndex ? 'active' : ''}"></span>`).join('');
+  }
+}
+
 function openModal(id){
   const p = PRODUCTS.find(x=>String(x.id)===String(id));
   if(!p) return;
 
-  document.getElementById("modal-media").innerHTML = p.image_url
-    ? `<img src="${p.image_url}" alt="${p.name_en}">`
-    : (ICONS[p.icon] || ICONS.photo);
+  const images = getImagesArray(p);
+  const mainMedia = document.getElementById("modal-media");
+  const thumbsWrap = document.getElementById("modal-thumbs");
+
+  if (images.length > 0) {
+    mainMedia.innerHTML = `<img id="modal-main-img" src="${images[0]}" alt="${p.name_en}">`;
+  } else {
+    mainMedia.innerHTML = ICONS[p.icon] || ICONS.photo;
+  }
+
+  if (images.length > 1) {
+    thumbsWrap.innerHTML = images.map((img, idx) => `
+      <div class="thumb-item ${idx === 0 ? 'active' : ''}" onclick="switchModalImage(event, '${img}')">
+        <img src="${img}" alt="">
+      </div>
+    `).join('');
+    thumbsWrap.style.display = "flex";
+  } else {
+    thumbsWrap.innerHTML = "";
+    thumbsWrap.style.display = "none";
+  }
 
   document.getElementById("modal-cat").textContent = LANG==="ka" ? (FILTERS.find(f=>f.key===p.cat)||{}).ka || p.cat : (FILTERS.find(f=>f.key===p.cat)||{}).en || p.cat;
   document.getElementById("modal-title").textContent = LANG==="ka" ? p.name_ka : p.name_en;
@@ -858,6 +1010,20 @@ function openModal(id){
 
   document.getElementById("overlay").classList.add("open");
   document.body.style.overflow = "hidden";
+}
+
+function switchModalImage(e, imgUrl) {
+  const mainImg = document.getElementById("modal-main-img");
+  if (mainImg) {
+    mainImg.src = imgUrl;
+  }
+
+  // Highlight active thumbnail
+  const parent = e.currentTarget.parentElement;
+  if (parent) {
+    parent.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+  }
 }
 
 function closeModal(){
