@@ -207,10 +207,11 @@
 
     <div class="thumb-preview" id="thumb-preview">no photo</div>
     <div class="field">
-      <label>Photo</label>
-      <input type="file" id="f-photo" accept="image/*" onchange="handlePhotoChange(event)">
-      <div class="upload-status" id="upload-status"></div>
-    </div>
+  <label>Photos (Select Multiple)</label>
+  <input type="file" id="f-photo" accept="image/*" multiple onchange="handlePhotoChange(event)">
+  <div class="upload-status" id="upload-status"></div>
+</div>
+<div id="thumb-preview-list" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
 
     <div class="row-2">
       <div class="field">
@@ -302,9 +303,8 @@ try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e){}
 
 let PRODUCTS = [];
 let EDITING_ID = null;
-let PENDING_IMAGE_URL = null;
-let PENDING_FILE = null;
-
+let PENDING_FILES = [];
+let EXISTING_IMAGE_URLS = [];
 const CATS = {denim:"Denim", outerwear:"Outerwear", tops:"Tops", belts:"Belts", shoes:"Shoes"};
 
 /* ---------------- AUTH ---------------- */
@@ -430,10 +430,18 @@ function renderList(){
 
   list.innerHTML = "";
   PRODUCTS.forEach(p=>{
+    // Handle main image preview (checks array or single string)
+    let displayImg = "";
+    if (Array.isArray(p.image_urls) && p.image_urls.length > 0) {
+      displayImg = p.image_urls[0];
+    } else if (p.image_url) {
+      displayImg = p.image_url;
+    }
+
     const row = document.createElement("div");
     row.className = "p-row" + (p.sold ? " is-sold" : "");
     row.innerHTML = `
-      <div class="p-thumb">${p.image_url ? `<img src="${p.image_url}">` : ""}</div>
+      <div class="p-thumb">${displayImg ? `<img src="${displayImg}">` : ""}</div>
       <div class="p-info">
         <div class="p-name">${p.name_en || p.name_ka}</div>
         <div class="p-meta">${CATS[p.cat] || p.cat} · ${p.size || "—"} · ${p.price} ₾</div>
@@ -454,8 +462,8 @@ function renderList(){
 
 function openForm(id){
   EDITING_ID = id || null;
-  PENDING_IMAGE_URL = null;
-  PENDING_FILE = null;
+  PENDING_FILES = [];
+  EXISTING_IMAGE_URLS = [];
   document.getElementById("form-error").textContent = "";
   document.getElementById("upload-status").textContent = "";
   document.getElementById("f-photo").value = "";
@@ -477,8 +485,14 @@ function openForm(id){
     document.getElementById("f-cond-ka").value = p.cond_ka || "";
     document.getElementById("f-cond-en").value = p.cond_en || "";
     document.getElementById("f-sold").checked = !!p.sold;
-    document.getElementById("thumb-preview").innerHTML = p.image_url ? `<img src="${p.image_url}">` : "no photo";
-    PENDING_IMAGE_URL = p.image_url || null;
+    
+    // Populate existing images
+    if (Array.isArray(p.image_urls)) {
+      EXISTING_IMAGE_URLS = [...p.image_urls];
+    } else if (p.image_url) {
+      EXISTING_IMAGE_URLS = [p.image_url];
+    }
+    
     del.classList.remove("hidden");
   } else {
     document.getElementById("form-title").textContent = "Add product";
@@ -494,10 +508,10 @@ function openForm(id){
     document.getElementById("f-cond-ka").value = "";
     document.getElementById("f-cond-en").value = "";
     document.getElementById("f-sold").checked = false;
-    document.getElementById("thumb-preview").innerHTML = "no photo";
     del.classList.add("hidden");
   }
 
+  updatePreviews();
   document.getElementById("form-overlay").classList.add("open");
 }
 
@@ -506,40 +520,107 @@ function closeForm(){
 }
 
 function handlePhotoChange(e){
-  const file = e.target.files[0];
-  if (!file) return;
-  PENDING_FILE = file;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    document.getElementById("thumb-preview").innerHTML = `<img src="${ev.target.result}">`;
-  };
-  reader.readAsDataURL(file);
-  document.getElementById("upload-status").textContent = "Photo will upload when you save.";
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  
+  PENDING_FILES = PENDING_FILES.concat(files);
+  updatePreviews();
+  document.getElementById("upload-status").textContent = `${PENDING_FILES.length} new photo(s) selected.`;
 }
 
-async function uploadPendingPhoto(){
-  if (!PENDING_FILE) return PENDING_IMAGE_URL;
-  const status = document.getElementById("upload-status");
-  status.textContent = "Uploading photo...";
-  
-  // Extract clean extension safely without slashes or special URL encoding characters
-  const rawExt = PENDING_FILE.name.split(".").pop() || "jpg";
-  const cleanExt = rawExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
+function removeExistingImage(index){
+  EXISTING_IMAGE_URLS.splice(index, 1);
+  updatePreviews();
+}
 
-  const { error } = await sb.storage.from("product-photos").upload(path, PENDING_FILE, { 
-    cacheControl: '3600',
-    upsert: false 
-  });
-  
-  if (error) {
-    status.textContent = "Photo upload failed: " + error.message;
-    throw error;
+function removePendingFile(index){
+  PENDING_FILES.splice(index, 1);
+  updatePreviews();
+  if (PENDING_FILES.length === 0) {
+    document.getElementById("upload-status").textContent = "";
+  } else {
+    document.getElementById("upload-status").textContent = `${PENDING_FILES.length} new photo(s) selected.`;
   }
+}
+
+function updatePreviews(){
+  const mainPreview = document.getElementById("thumb-preview");
+  const listPreview = document.getElementById("thumb-preview-list");
+  listPreview.innerHTML = "";
+
+  // Render existing image previews
+  EXISTING_IMAGE_URLS.forEach((url, i) => {
+    const div = document.createElement("div");
+    div.style.cssText = "position:relative; width:60px; height:60px; border-radius:4px; overflow:hidden; border:1px solid #ccc;";
+    div.innerHTML = `
+      <img src="${url}" style="width:100%; height:100%; object-fit:cover;">
+      <button onclick="removeExistingImage(${i})" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer;">×</button>
+    `;
+    listPreview.appendChild(div);
+  });
+
+  // Render pending file previews
+  PENDING_FILES.forEach((file, i) => {
+    const div = document.createElement("div");
+    div.style.cssText = "position:relative; width:60px; height:60px; border-radius:4px; overflow:hidden; border:1px solid #ccc;";
+    
+    const img = document.createElement("img");
+    img.style.cssText = "width:100%; height:100%; object-fit:cover;";
+    
+    const reader = new FileReader();
+    reader.onload = ev => { img.src = ev.target.result; };
+    reader.readAsDataURL(file);
+
+    const btn = document.createElement("button");
+    btn.textContent = "×";
+    btn.style.cssText = "position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer;";
+    btn.onclick = () => removePendingFile(i);
+
+    div.appendChild(img);
+    div.appendChild(btn);
+    listPreview.appendChild(div);
+  });
+
+  // Set top thumbnail box to show first available photo
+  if (EXISTING_IMAGE_URLS.length > 0) {
+    mainPreview.innerHTML = `<img src="${EXISTING_IMAGE_URLS[0]}">`;
+  } else if (PENDING_FILES.length > 0) {
+    const reader = new FileReader();
+    reader.onload = ev => { mainPreview.innerHTML = `<img src="${ev.target.result}">`; };
+    reader.readAsDataURL(PENDING_FILES[0]);
+  } else {
+    mainPreview.innerHTML = "no photo";
+  }
+}
+
+async function uploadPendingPhotos(){
+  if (!PENDING_FILES.length) return [];
+  const status = document.getElementById("upload-status");
+  status.textContent = "Uploading photos...";
   
-  const { data } = sb.storage.from("product-photos").getPublicUrl(path);
-  status.textContent = "Photo uploaded.";
-  return data.publicUrl;
+  const uploadedUrls = [];
+
+  for (const file of PENDING_FILES) {
+    const rawExt = file.name.split(".").pop() || "jpg";
+    const cleanExt = rawExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
+
+    const { error } = await sb.storage.from("product-photos").upload(path, file, { 
+      cacheControl: '3600',
+      upsert: false 
+    });
+    
+    if (error) {
+      status.textContent = "Photo upload failed: " + error.message;
+      throw error;
+    }
+    
+    const { data } = sb.storage.from("product-photos").getPublicUrl(path);
+    uploadedUrls.push(data.publicUrl);
+  }
+
+  status.textContent = "Photos uploaded successfully.";
+  return uploadedUrls;
 }
 
 async function saveProduct(){
@@ -553,13 +634,16 @@ async function saveProduct(){
   if (!nameKa || !nameEn) { errEl.textContent = "Add a name in both languages."; return; }
   if (isNaN(price)) { errEl.textContent = "Add a price."; return; }
 
-  let imageUrl;
+  let newUrls = [];
   try {
-    imageUrl = await uploadPendingPhoto();
+    newUrls = await uploadPendingPhotos();
   } catch (e) {
     errEl.textContent = "Photo upload failed — try saving again.";
     return;
   }
+
+  const allImageUrls = [...EXISTING_IMAGE_URLS, ...newUrls];
+  const primaryImageUrl = allImageUrls.length > 0 ? allImageUrls[0] : null;
 
   const payload = {
     cat: document.getElementById("f-cat").value,
@@ -574,7 +658,8 @@ async function saveProduct(){
     cond_ka: document.getElementById("f-cond-ka").value.trim(),
     cond_en: document.getElementById("f-cond-en").value.trim(),
     sold: document.getElementById("f-sold").checked,
-    image_url: imageUrl || null
+    image_url: primaryImageUrl,
+    image_urls: allImageUrls
   };
 
   let error;
