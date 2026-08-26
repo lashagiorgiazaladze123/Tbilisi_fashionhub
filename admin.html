@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — TBILISI FASHION HUB</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F9F8F6;
+    --ink:#111111;
+    --line:#E5E5E5;
+    --accent:#C85A32;
+    --tag:#F3EFE9;
+    --muted:#767267;
+    --danger:#B23A2F;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .hidden { display: none !important; }
+  .num{ font-family:'Space Grotesk',monospace; }
+  button{ font-family:inherit; cursor:pointer; }
+  input, textarea, select{ font-family:inherit; }
+
+  /* ---- login ---- */
+  .login-wrap{
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .login-box{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:32px;
+    width:100%;
+    max-width:360px;
+  }
+  .login-logo{
+    font-family:'Space Grotesk',monospace;
+    font-weight:700;
+    font-size:15px;
+    margin-bottom:4px;
+  }
+  .login-logo .slash{ color:var(--accent); }
+  .login-sub{ font-size:12px; color:var(--muted); margin-bottom:24px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  .field input, .field select, .field textarea{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:14px;
+    background:#fff;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .btn{
+    display:inline-block;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    padding:11px 18px;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:600;
+    transition:.15s;
+  }
+  .btn:hover{ background:var(--accent); }
+  .btn-block{ width:100%; text-align:center; }
+  .btn-outline{
+    background:#fff; color:var(--ink); border:1px solid var(--ink);
+  }
+  .btn-outline:hover{ background:var(--ink); color:#fff; }
+  .btn-danger{ background:#fff; color:var(--danger); border:1px solid var(--danger); }
+  .btn-danger:hover{ background:var(--danger); color:#fff; }
+  .btn-sm{ padding:7px 12px; font-size:12px; }
+  .error-msg{ color:var(--danger); font-size:12px; margin-bottom:12px; min-height:14px; }
+
+  /* ---- admin shell ---- */
+  .admin-nav{
+    position:sticky; top:0; z-index:20;
+    background:rgba(249,248,246,0.95);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+  }
+  .admin-logo{ font-family:'Space Grotesk',monospace; font-weight:700; font-size:15px; }
+  .admin-logo .slash{ color:var(--accent); }
+  .admin-logo .tag{ font-size:11px; color:var(--muted); font-weight:500; margin-left:6px; }
+  .admin-actions{ display:flex; gap:10px; align-items:center; }
+
+  .admin-main{ max-width:1080px; margin:0 auto; padding:28px 24px 80px; }
+  .admin-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .admin-title{ font-size:20px; font-weight:700; }
+  .admin-count{ font-size:12px; color:var(--muted); font-family:'Space Grotesk',monospace; }
+
+  .p-list{ display:flex; flex-direction:column; gap:10px; }
+  .p-row{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .p-row.is-sold{ opacity:0.55; }
+  .p-thumb{
+    width:56px; height:56px; border-radius:6px; overflow:hidden; flex-shrink:0;
+    background:var(--tag); display:flex; align-items:center; justify-content:center;
+  }
+  .p-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .p-info{ flex:1; min-width:0; }
+  .p-name{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .p-meta{ font-size:12px; color:var(--muted); font-family:'Space Grotesk',monospace; margin-top:2px; }
+  .p-badges{ display:flex; gap:6px; flex-shrink:0; }
+  .tiny-badge{
+    font-size:10px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+    padding:3px 7px; border-radius:3px; background:var(--tag); color:var(--muted);
+  }
+  .tiny-badge.sold{ background:var(--ink); color:#fff; }
+  .p-row-actions{ display:flex; gap:8px; flex-shrink:0; }
+
+  .state-msg{ padding:40px 20px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* ---- modal form ---- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(17,17,17,0.5);
+    display:none; align-items:flex-start; justify-content:center;
+    z-index:100; padding:24px; overflow-y:auto;
+  }
+  .overlay.open{ display:flex; }
+  .form-modal{
+    background:#fff; width:100%; max-width:520px; border-radius:10px; padding:24px; margin:20px 0;
+  }
+  .form-modal h2{ font-size:17px; margin-bottom:18px; }
+  .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .row-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .form-actions{ display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px; flex-wrap:wrap; }
+  .form-actions-right{ display:flex; gap:10px; }
+  .thumb-preview{
+    width:80px; height:80px; border-radius:6px; overflow:hidden; background:var(--tag);
+    display:flex; align-items:center; justify-content:center; margin-bottom:8px; font-size:11px; color:var(--muted);
+  }
+  .thumb-preview img{ width:100%; height:100%; object-fit:cover; }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:13px; margin-top:4px; }
+  .checkbox-row input{ width:auto; }
+  .upload-status{ font-size:11px; color:var(--muted); margin-top:6px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-view">
+  <div class="login-box">
+    <div class="login-logo"><span>TBILISI</span><span class="slash">/</span><span>FASHION HUB</span></div>
+    <div class="login-sub">Admin sign in</div>
+    <div class="field">
+      <label>Email</label>
+      <input id="login-email" type="email" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="login-password" type="password" autocomplete="current-password">
+    </div>
+    <div class="error-msg" id="login-error"></div>
+    <button class="btn btn-block" onclick="doLogin()">Sign in</button>
+  </div>
+</div>
+
+<!-- ADMIN SHELL -->
+<div id="admin-view" class="hidden" style="display:none;">
+  <nav class="admin-nav">
+    <div class="admin-logo"><span>TBILISI</span><span class="slash">/</span><span>FASHION HUB</span><span class="tag">ADMIN</span></div>
+    <div class="admin-actions">
+      <a class="btn btn-outline btn-sm" href="index.html" target="_blank">View site</a>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">Log out</button>
+    </div>
+  </nav>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div class="admin-title">Products</div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="admin-count" id="admin-count">0 items</span>
+        <button class="btn btn-sm" onclick="openForm()">+ Add product</button>
+      </div>
+    </div>
+    <div class="p-list" id="p-list">
+      <div class="state-msg">Loading...</div>
+    </div>
+  </main>
+</div>
+
+<!-- ADD / EDIT FORM MODAL -->
+<div class="overlay" id="form-overlay" onclick="if(event.target===this) closeForm()">
+  <div class="form-modal">
+    <h2 id="form-title">Add product</h2>
+
+    <div class="thumb-preview" id="thumb-preview">no photo</div>
+    <div class="field">
+      <label>Photo</label>
+      <input type="file" id="f-photo" accept="image/*" onchange="handlePhotoChange(event)">
+      <div class="upload-status" id="upload-status"></div>
+    </div>
+
+    <div class="row-2">
+      <div class="field">
+        <label>Category</label>
+        <select id="f-cat">
+          <option value="denim">Denim</option>
+          <option value="outerwear">Outerwear</option>
+          <option value="tops">Tops</option>
+          <option value="belts">Belts</option>
+          <option value="shoes">Shoes</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Badge</label>
+        <select id="f-badge">
+          <option value="">None</option>
+          <option value="new">New</option>
+          <option value="1of1">1 of 1</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Name (Georgian)</label>
+      <input id="f-name-ka" type="text">
+    </div>
+    <div class="field">
+      <label>Name (English)</label>
+      <input id="f-name-en" type="text">
+    </div>
+
+    <div class="row-2">
+      <div class="field">
+        <label>Size</label>
+        <input id="f-size" type="text" placeholder="e.g. W32/L34">
+      </div>
+      <div class="field">
+        <label>Price (₾)</label>
+        <input id="f-price" type="number" min="0" step="1">
+      </div>
+    </div>
+
+    <div class="row-3">
+      <div class="field">
+        <label>Chest (cm)</label>
+        <input id="f-chest" type="text" placeholder="—">
+      </div>
+      <div class="field">
+        <label>Length (cm)</label>
+        <input id="f-length" type="text" placeholder="—">
+      </div>
+      <div class="field">
+        <label>Waist (cm)</label>
+        <input id="f-waist" type="text" placeholder="—">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Condition note (Georgian)</label>
+      <textarea id="f-cond-ka" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>Condition note (English)</label>
+      <textarea id="f-cond-en" rows="2"></textarea>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="f-sold">
+      <label for="f-sold">Mark as sold</label>
+    </div>
+
+    <div class="error-msg" id="form-error"></div>
+
+    <div class="form-actions">
+      <button class="btn-danger btn btn-sm hidden" id="form-delete-btn" onclick="deleteCurrent()">Delete product</button>
+      <div class="form-actions-right" style="margin-left:auto;">
+        <button class="btn btn-outline btn-sm" onclick="closeForm()">Cancel</button>
+        <button class="btn btn-sm" onclick="saveProduct()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+let sb = null;
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e){}
+
+let PRODUCTS = [];
+let EDITING_ID = null;
+let PENDING_IMAGE_URL = null;
+let PENDING_FILE = null;
+
+const CATS = {denim:"Denim", outerwear:"Outerwear", tops:"Tops", belts:"Belts", shoes:"Shoes"};
+
+/* ---------------- AUTH ---------------- */
+
+async function checkSession(){
+  if (!sb) { showConfigError(); return; }
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) {
+      console.error('Session error:', error);
+      showLogin();
+      document.getElementById("login-error").textContent = error.message;
+      return;
+    }
+    if (data.session) {
+      showAdmin();
+    } else {
+      showLogin();
+    }
+  } catch (e) {
+    console.error('checkSession failed:', e);
+    showLogin();
+    document.getElementById("login-error").textContent = 'Unable to load your session. Check your Supabase setup.';
+  }
+}
+
+function showConfigError(){
+  const loginError = document.getElementById("login-error");
+  loginError.textContent = "Supabase isn't configured yet — fill in config.js (see SETUP.md).";
+  showLogin();
+}
+
+function showLogin(){
+  const loginView = document.getElementById("login-view");
+  const adminView = document.getElementById("admin-view");
+  loginView.classList.remove("hidden");
+  loginView.style.display = "flex";
+  adminView.classList.add("hidden");
+  adminView.style.display = "none";
+}
+
+function showAdmin(){
+  const loginView = document.getElementById("login-view");
+  const adminView = document.getElementById("admin-view");
+  loginView.classList.add("hidden");
+  loginView.style.display = "none";
+  adminView.classList.remove("hidden");
+  adminView.style.display = "block";
+  loadProducts();
+}
+
+async function doLogin(){
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl = document.getElementById("login-error");
+  errEl.textContent = "";
+  if (!sb) {
+    showConfigError();
+    return;
+  }
+  if (!email || !password) { errEl.textContent = "Enter your email and password."; return; }
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { errEl.textContent = error.message; return; }
+    if (data.session) {
+      showAdmin();
+    } else {
+      errEl.textContent = 'Sign-in succeeded but no session was returned.';
+    }
+  } catch (e) {
+    console.error('Login failed:', e);
+    errEl.textContent = 'Login failed. Check your Supabase project and admin user.';
+  }
+}
+
+async function doLogout(){
+  if (!sb) return;
+  try {
+    await sb.auth.signOut();
+  } catch (e) {
+    console.error('Logout failed:', e);
+  }
+  showLogin();
+}
+
+/* ---------------- LIST ---------------- */
+
+async function loadProducts(){
+  if (!sb) {
+    showConfigError();
+    return;
+  }
+
+  const list = document.getElementById("p-list");
+  list.innerHTML = `<div class="state-msg">Loading...</div>`;
+
+  try {
+    const { data, error } = await sb.from("products").select("*")
+      .order("created_at", { ascending:false });
+
+    if (error) {
+      console.error('loadProducts error:', error);
+      list.innerHTML = `<div class="state-msg">Couldn't load products: ${error.message}</div>`;
+      return;
+    }
+    PRODUCTS = data || [];
+    renderList();
+  } catch (e) {
+    console.error('loadProducts failed:', e);
+    list.innerHTML = `<div class="state-msg">Couldn't load products. Check that the Supabase SQL in <b>schema.sql</b> has been run.</div>`;
+  }
+}
+
+function renderList(){
+  const list = document.getElementById("p-list");
+  document.getElementById("admin-count").textContent = PRODUCTS.length + " items";
+
+  if (PRODUCTS.length === 0) {
+    list.innerHTML = `<div class="state-msg">No products yet — add your first one.</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  PRODUCTS.forEach(p=>{
+    const row = document.createElement("div");
+    row.className = "p-row" + (p.sold ? " is-sold" : "");
+    row.innerHTML = `
+      <div class="p-thumb">${p.image_url ? `<img src="${p.image_url}">` : ""}</div>
+      <div class="p-info">
+        <div class="p-name">${p.name_en || p.name_ka}</div>
+        <div class="p-meta">${CATS[p.cat] || p.cat} · ${p.size || "—"} · ${p.price} ₾</div>
+      </div>
+      <div class="p-badges">
+        ${p.sold ? `<span class="tiny-badge sold">Sold</span>` : ""}
+        ${p.badge ? `<span class="tiny-badge">${p.badge === "1of1" ? "1 of 1" : "New"}</span>` : ""}
+      </div>
+      <div class="p-row-actions">
+        <button class="btn btn-outline btn-sm" onclick="openForm('${p.id}')">Edit</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+/* ---------------- FORM ---------------- */
+
+function openForm(id){
+  EDITING_ID = id || null;
+  PENDING_IMAGE_URL = null;
+  PENDING_FILE = null;
+  document.getElementById("form-error").textContent = "";
+  document.getElementById("upload-status").textContent = "";
+  document.getElementById("f-photo").value = "";
+
+  const del = document.getElementById("form-delete-btn");
+
+  if (id) {
+    const p = PRODUCTS.find(x=>String(x.id)===String(id));
+    document.getElementById("form-title").textContent = "Edit product";
+    document.getElementById("f-cat").value = p.cat;
+    document.getElementById("f-badge").value = p.badge || "";
+    document.getElementById("f-name-ka").value = p.name_ka || "";
+    document.getElementById("f-name-en").value = p.name_en || "";
+    document.getElementById("f-size").value = p.size || "";
+    document.getElementById("f-price").value = p.price;
+    document.getElementById("f-chest").value = p.chest || "";
+    document.getElementById("f-length").value = p.length || "";
+    document.getElementById("f-waist").value = p.waist || "";
+    document.getElementById("f-cond-ka").value = p.cond_ka || "";
+    document.getElementById("f-cond-en").value = p.cond_en || "";
+    document.getElementById("f-sold").checked = !!p.sold;
+    document.getElementById("thumb-preview").innerHTML = p.image_url ? `<img src="${p.image_url}">` : "no photo";
+    PENDING_IMAGE_URL = p.image_url || null;
+    del.classList.remove("hidden");
+  } else {
+    document.getElementById("form-title").textContent = "Add product";
+    document.getElementById("f-cat").value = "denim";
+    document.getElementById("f-badge").value = "new";
+    document.getElementById("f-name-ka").value = "";
+    document.getElementById("f-name-en").value = "";
+    document.getElementById("f-size").value = "";
+    document.getElementById("f-price").value = "";
+    document.getElementById("f-chest").value = "";
+    document.getElementById("f-length").value = "";
+    document.getElementById("f-waist").value = "";
+    document.getElementById("f-cond-ka").value = "";
+    document.getElementById("f-cond-en").value = "";
+    document.getElementById("f-sold").checked = false;
+    document.getElementById("thumb-preview").innerHTML = "no photo";
+    del.classList.add("hidden");
+  }
+
+  document.getElementById("form-overlay").classList.add("open");
+}
+
+function closeForm(){
+  document.getElementById("form-overlay").classList.remove("open");
+}
+
+function handlePhotoChange(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  PENDING_FILE = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById("thumb-preview").innerHTML = `<img src="${ev.target.result}">`;
+  };
+  reader.readAsDataURL(file);
+  document.getElementById("upload-status").textContent = "Photo will upload when you save.";
+}
+
+async function uploadPendingPhoto(){
+  if (!PENDING_FILE) return PENDING_IMAGE_URL;
+  const status = document.getElementById("upload-status");
+  status.textContent = "Uploading photo...";
+  
+  // Extract clean extension safely without slashes or special URL encoding characters
+  const rawExt = PENDING_FILE.name.split(".").pop() || "jpg";
+  const cleanExt = rawExt.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
+
+  const { error } = await sb.storage.from("product-photos").upload(path, PENDING_FILE, { 
+    cacheControl: '3600',
+    upsert: false 
+  });
+  
+  if (error) {
+    status.textContent = "Photo upload failed: " + error.message;
+    throw error;
+  }
+  
+  const { data } = sb.storage.from("product-photos").getPublicUrl(path);
+  status.textContent = "Photo uploaded.";
+  return data.publicUrl;
+}
+
+async function saveProduct(){
+  const errEl = document.getElementById("form-error");
+  errEl.textContent = "";
+
+  const nameKa = document.getElementById("f-name-ka").value.trim();
+  const nameEn = document.getElementById("f-name-en").value.trim();
+  const price = parseFloat(document.getElementById("f-price").value);
+
+  if (!nameKa || !nameEn) { errEl.textContent = "Add a name in both languages."; return; }
+  if (isNaN(price)) { errEl.textContent = "Add a price."; return; }
+
+  let imageUrl;
+  try {
+    imageUrl = await uploadPendingPhoto();
+  } catch (e) {
+    errEl.textContent = "Photo upload failed — try saving again.";
+    return;
+  }
+
+  const payload = {
+    cat: document.getElementById("f-cat").value,
+    badge: document.getElementById("f-badge").value || null,
+    name_ka: nameKa,
+    name_en: nameEn,
+    size: document.getElementById("f-size").value.trim(),
+    price: price,
+    chest: document.getElementById("f-chest").value.trim() || "—",
+    length: document.getElementById("f-length").value.trim() || "—",
+    waist: document.getElementById("f-waist").value.trim() || "—",
+    cond_ka: document.getElementById("f-cond-ka").value.trim(),
+    cond_en: document.getElementById("f-cond-en").value.trim(),
+    sold: document.getElementById("f-sold").checked,
+    image_url: imageUrl || null
+  };
+
+  let error;
+  if (EDITING_ID) {
+    ({ error } = await sb.from("products").update(payload).eq("id", EDITING_ID));
+  } else {
+    ({ error } = await sb.from("products").insert(payload));
+  }
+
+  if (error) { errEl.textContent = error.message; return; }
+
+  closeForm();
+  loadProducts();
+}
+
+async function deleteCurrent(){
+  if (!EDITING_ID) return;
+  if (!confirm("Delete this product? This can't be undone.")) return;
+  const { error } = await sb.from("products").delete().eq("id", EDITING_ID);
+  if (error) { document.getElementById("form-error").textContent = error.message; return; }
+  closeForm();
+  loadProducts();
+}
+
+document.addEventListener("DOMContentLoaded", checkSession);
+</script>
+</body>
+</html>
