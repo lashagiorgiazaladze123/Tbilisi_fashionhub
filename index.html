@@ -33,7 +33,10 @@
     font-family:'Noto Sans Georgian','Inter',sans-serif;
     -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
+    opacity:0;
+    transition:opacity .12s ease;
   }
+  body.ready{ opacity:1; }
   body.lang-en{ font-family:'Inter','Noto Sans Georgian',sans-serif; }
 
   .num{ font-family:'Space Grotesk',monospace; }
@@ -731,6 +734,7 @@ async function loadProducts(){
 
 function setLang(lang){
   LANG = lang;
+  document.body.classList.add("ready"); // <-- Add this line
   document.body.classList.toggle("lang-en", lang === "en");
   document.getElementById("btn-ka").classList.toggle("active", lang==="ka");
   document.getElementById("btn-en").classList.toggle("active", lang==="en");
@@ -864,7 +868,7 @@ function closeModal(){
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeModal(); });
 
 /* init */
-renderGrid();
+setLang("ka");
 loadProducts();
 </script>
 </body>
